@@ -5,6 +5,7 @@ import com.bmuschko.gradle.docker.TestConfiguration
 import com.bmuschko.gradle.docker.TestPrecondition
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.testkit.runner.TaskOutcome
+import spock.lang.Issue
 import spock.lang.Requires
 import spock.lang.Unroll
 
@@ -264,18 +265,13 @@ class DockerBuildImageFunctionalTest extends AbstractGroovyDslFunctionalTest {
         imageIdFile.text != ""
     }
 
+    @Issue('https://github.com/bmuschko/gradle-docker-plugin/issues/818')
     def "task not up-to-date when imageIdFile changed"() {
         given:
         buildFile << imageCreation()
         buildFile << """
             task verifyImageId {
                 dependsOn buildImage
-
-                doLast {
-                    // Expose issues with getImageId returning null
-                    // https://github.com/bmuschko/gradle-docker-plugin/issues/818
-                    buildImage.getImageId().get()
-                }
             }
         """
         File imageIdFile = new File(projectDir, 'build/.docker/buildImage-imageId.txt')
@@ -322,6 +318,8 @@ class DockerBuildImageFunctionalTest extends AbstractGroovyDslFunctionalTest {
                 dependsOn dockerfile
                 shmSize = 128000L
             }
+
+            ${imageIdValidation()}
         """
     }
 
@@ -338,6 +336,8 @@ class DockerBuildImageFunctionalTest extends AbstractGroovyDslFunctionalTest {
             task buildImage(type: DockerBuildImage) {
                 dependsOn dockerfile
             }
+
+            ${imageIdValidation()}
         """
     }
 
@@ -376,6 +376,8 @@ class DockerBuildImageFunctionalTest extends AbstractGroovyDslFunctionalTest {
                 dependsOn buildImage
                 targetImageId buildImage.getImageId()
             }
+
+            ${imageIdValidation()}
         """
     }
 
@@ -398,6 +400,8 @@ class DockerBuildImageFunctionalTest extends AbstractGroovyDslFunctionalTest {
                 dependsOn buildImage
                 targetImageId buildImage.getImageId()
             }
+
+            ${imageIdValidation()}
         """
     }
 
@@ -421,6 +425,8 @@ class DockerBuildImageFunctionalTest extends AbstractGroovyDslFunctionalTest {
                 dependsOn dockerfile
                 tags.add('test/image:123')
             }
+
+            ${imageIdValidation()}
         """
     }
 
@@ -443,6 +449,8 @@ class DockerBuildImageFunctionalTest extends AbstractGroovyDslFunctionalTest {
                 cacheFrom.add('$uniqueTag:latest')
                 tags.add('$uniqueTag:latest')
             }
+
+            ${imageIdValidation()}
         """
     }
 
@@ -492,6 +500,8 @@ class DockerBuildImageFunctionalTest extends AbstractGroovyDslFunctionalTest {
                 inputDir = dockerfile.destFile.get().asFile.parentFile
                 ${useCacheFrom ? "cacheFrom.add('$uniqueTag:latest')" : ""}
             }
+
+            ${imageIdValidation()}
         """
     }
 
@@ -508,6 +518,8 @@ class DockerBuildImageFunctionalTest extends AbstractGroovyDslFunctionalTest {
                 dependsOn dockerfile
                 network = 'host'
             }
+
+            ${imageIdValidation()}
         """
     }
 
@@ -539,6 +551,26 @@ class DockerBuildImageFunctionalTest extends AbstractGroovyDslFunctionalTest {
             }
             
             buildTarget.finalizedBy tasks.removeImage
+
+            ${imageIdValidation()}
+        """
+    }
+
+    private static String imageIdValidation() {
+        """
+            tasks.withType(DockerBuildImage).all { Task task ->
+                def assertTask = tasks.create("assertImageIdFor\${task.name}"){
+                    def dependantTask = task
+                    doLast {
+                        def value = dependantTask.getImageId().getOrNull()
+                        if(value == null || !(value ==~ /^\\w+\$/)) {
+                            throw new GradleException("The imageId property was not set from task \${dependantTask.name}")
+                        }
+                    }
+                }
+
+                task.finalizedBy assertTask
+            }
         """
     }
 }
