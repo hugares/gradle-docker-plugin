@@ -270,6 +270,12 @@ class DockerBuildImageFunctionalTest extends AbstractGroovyDslFunctionalTest {
         buildFile << """
             task verifyImageId {
                 dependsOn buildImage
+
+                doLast {
+                    // Expose issues with getImageId returning null
+                    // https://github.com/bmuschko/gradle-docker-plugin/issues/818
+                    buildImage.getImageId().get()
+                }
             }
         """
         File imageIdFile = new File(projectDir, 'build/.docker/buildImage-imageId.txt')
