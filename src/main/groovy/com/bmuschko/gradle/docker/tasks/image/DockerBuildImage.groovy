@@ -82,7 +82,7 @@ class DockerBuildImage extends AbstractDockerRemoteApiTask implements RegistryCr
 
     @Input
     @Optional
-    final MapProperty<String, String> labels = project.objects.mapProperty(String, String)
+    MapProperty<String, String> labels = project.objects.mapProperty(String, String)
 
     @Input
     @Optional
@@ -122,7 +122,7 @@ class DockerBuildImage extends AbstractDockerRemoteApiTask implements RegistryCr
     DockerRegistryCredentials registryCredentials
 
     /**
-     * Output file containing the image ID of the built image. 
+     * Output file containing the image ID of the built image.
      * Defaults to "$buildDir/.docker/$taskpath-imageId.txt".
      * If path contains ':' it will be replaced by '_'.
      *
